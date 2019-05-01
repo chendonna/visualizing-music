@@ -46,13 +46,6 @@ var shaderUniforms, shaderAttributes;
 var system = createParticleSystem();
 parentContainer.add(system)
 
-// ADDING A CUBE
-// var geometry = new THREE.BoxGeometry( 1, 1, 1 );
-// var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-// var cube = new THREE.Mesh( geometry, material );
-// scene.add( cube );
-//
-
 //PARTICLE SYSTEM
 function createParticleSystem() {
     // shaderAttributes = {
@@ -70,7 +63,7 @@ function createParticleSystem() {
 
     var sphere = new THREE.SphereBufferGeometry(10, 30, 30);
     console.log(sphere);
-    //sphere.verticesNeedUpdate = true;
+    sphere.verticesNeedUpdate = true;
 
     const shaderMaterial = new THREE.ShaderMaterial({
                                   //attributes: shaderAttributes,
