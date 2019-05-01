@@ -13,6 +13,32 @@
     </head>
     <body>
         <div id = "scene"> </div>
+
+        <script type="x-shader/x-vertex" id="vertexShader">
+            uniform float amplitude;
+
+            void main() {
+                gl_PointSize = 2.0;
+
+                vec4 new_pos = vec4(position, 1.0);
+
+                new_pos.z *= amplitude;
+                new_pos.x *= amplitude;
+                new_pos.y *= amplitude;
+
+
+
+                gl_Position = projectionMatrix * modelViewMatrix * new_pos;
+            }
+        </script>
+
+        <script type="x-shader/x-fragment" id="fragmentShader">
+            void main() {
+                gl_FragColor = vec4(0.35, 0.36, 0.37, 1.0);
+            }
+
+        </script>
+
         <script src="./three.js/three.min.js"></script>
         <script src="./js/index.js"></script>
 

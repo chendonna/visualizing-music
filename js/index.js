@@ -7,6 +7,9 @@ const ASPECT = WIDTH/HEIGHT;
 const NEAR = 0.1;
 const FAR = 10000;
 
+var animationTime = 0;
+var animationDelta = 0.03;
+
 var mousePos = {x: 0.5, y: 0.5};
 document.addEventListener('mousemove', function (event) {  mousePos = {x:event.clientX/WIDTH, y:event.clientY/HEIGHT};});
 
@@ -38,9 +41,11 @@ scene_dom.appendChild(renderer.domElement);
 var parentContainer = new THREE.Object3D();
 scene.add(parentContainer)
 
+var shaderUniforms, shaderAttributes;
 
 var system = createParticleSystem();
 parentContainer.add(system)
+
 // ADDING A CUBE
 // var geometry = new THREE.BoxGeometry( 1, 1, 1 );
 // var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
@@ -50,58 +55,48 @@ parentContainer.add(system)
 
 //PARTICLE SYSTEM
 function createParticleSystem() {
-    var particles = new THREE.Geometry(),
-        pMat = new THREE.PointsMaterial({
-            color: 0xffffff,
-            size: 1,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            map: generateSprite()
-        });
+    // shaderAttributes = {
+    //     vertexColor: {
+    //         type: "c",
+    //         value: []
+    //     }
+    // };
+    shaderUniforms = {
+        amplitude: {
+            type: "f",
+            value: 0.5
+    }};
 
-    var sphere = new THREE.SphereGeometry(10, 30, 30);
-    sphere.verticesNeedUpdate = true;
 
-    var system = new THREE.Points(sphere, pMat);
+    var sphere = new THREE.SphereBufferGeometry(10, 30, 30);
+    console.log(sphere);
+    //sphere.verticesNeedUpdate = true;
+
+    const shaderMaterial = new THREE.ShaderMaterial({
+                                  //attributes: shaderAttributes,
+                                  uniforms: shaderUniforms,
+                                  vertexShader: document.getElementById("vertexShader").textContent,
+                                  fragmentShader: document.getElementById("fragmentShader").textContent,
+                                  transparent: true,
+    });
+
+    var system = new THREE.Points(sphere, shaderMaterial);
+    console.log(system)
     system.sortParticles = true;
+
+    particles = system.geometry.vertices;
 
     return system;
 
 }
 
-function generateSprite() {
-
-    var canvas = document.createElement('canvas');
-    canvas.width = 16;
-    canvas.height = 16;
-
-    var context = canvas.getContext('2d');
-    var gradient = context.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width / 2);
-    gradient.addColorStop(0, 'rgba(255,255,255,1)');
-    gradient.addColorStop(0.2, 'rgba(0,255,255,1)');
-    gradient.addColorStop(0.4, 'rgba(0,0,64,1)');
-    gradient.addColorStop(1, 'rgba(0,0,0,1)');
-
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    var texture = new THREE.Texture(canvas);
-    texture.needsUpdate = true;
-    return texture;
-
-}
-console.log(system.geometry.vertices)
-
 function animate() {
 	requestAnimationFrame( animate );
 
-    system.geometry.vertices.forEach(function(v) {
-        // console.log(v.y)
-        // console.log(v.vy)
-        system.geometry.verticesNeedUpdate = true;
-    })
+    shaderUniforms.amplitude.value = Math.sin(animationTime);
 
-    // unsure why it's flipped but ok lol
+    animationTime += animationDelta;
+
     parentContainer.rotation.y += 0.001;
     parentContainer.rotation.x = (mousePos.y-0.5) * Math.PI;
     parentContainer.rotation.z = (mousePos.x-0.5) * Math.PI;
