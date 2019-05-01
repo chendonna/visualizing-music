@@ -3,8 +3,6 @@
 const AUDIO_WIDTH = 200;
 const AUDIO_HEIGHT = 100;
 
-function help(){
-    console.log("called help");
 
 // SETTING CONSTANTS
 
@@ -93,8 +91,8 @@ function createParticleSystem() {
 
 function animate() {
 	requestAnimationFrame( animate );
-
-    shaderUniforms.amplitude.value = Math.sin(animationTime);
+    //analyser.getByteTimeDomainData(dataArray);
+    //shaderUniforms.amplitude.value = Math.sin(animationTime);
 
     animationTime += animationDelta;
 
@@ -105,6 +103,23 @@ function animate() {
 	renderer.render( scene, camera );
 }
 animate();
+
+// Function to identify peaks
+
+function getPeaksAtThreshold(data, threshold) {
+  var peaksArray = [];
+  var length = data.length;
+  for(var i = 0; i < length;) {
+    if (data[i] > threshold) {
+      peaksArray.push(i);
+      // Skip forward ~ 1/4s to get past this peak.
+      i += 10000;
+    }
+    i++;
+  }
+  return peaksArray;
+}
+
 
 function initAudio(){
     audioCtx = new AudioContext();
@@ -117,9 +132,11 @@ function initAudio(){
 function loopAudio(analyser, dataArray){
     requestAnimationFrame(loopAudio);
     analyser.getByteTimeDomainData(dataArray);
-    console.log(dataArray);
+    //console.log(dataArray);
     loopAudio(analyser, dataArray);
 }
+
+
 
 function draw(){
     var drawVisual = requestAnimationFrame(draw);
@@ -150,7 +167,7 @@ function draw(){
     }
     canvasCtx.lineTo(canvas.width, canvas.height/2);
     canvasCtx.stroke();
-    console.log(dataArray);
+    //console.log(dataArray);
 }
 
 function playAudio(){
