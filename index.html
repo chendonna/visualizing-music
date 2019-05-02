@@ -18,15 +18,29 @@
         <div id = "scene"> </div>
         <script type="x-shader/x-vertex" id="vertexShader">
             uniform float amplitude;
+            varying vec3 vColor;
+            attribute vec3 center;
+
 
             void main() {
-                gl_PointSize = 2.0;
+                gl_PointSize = 1.5;
+                vColor = color;
 
                 vec4 new_pos = vec4(position, 1.0);
 
-                new_pos.z *= amplitude;
-                new_pos.x *= amplitude;
-                new_pos.y *= amplitude;
+                if (amplitude >= 0.0) {
+                    new_pos.z = -(new_pos.z * amplitude + center.z);
+                    new_pos.x = -(new_pos.x * amplitude + center.x);
+                    new_pos.y = -(new_pos.y * amplitude + center.y);
+                } else {
+                    new_pos.z = new_pos.z * amplitude - center.z;
+                    new_pos.x = new_pos.x * amplitude - center.x;
+                    new_pos.y = new_pos.y * amplitude - center.y;
+                }
+
+                // new_pos.z = center.z;
+                // new_pos.x += center.x;
+                // new_pos.y += center.y;
 
 
 
@@ -35,8 +49,10 @@
         </script>
 
         <script type="x-shader/x-fragment" id="fragmentShader">
+            varying vec3 vColor;
+
             void main() {
-                gl_FragColor = vec4(0.35, 0.36, 0.37, 1.0);
+                gl_FragColor = vec4( vColor, 1.0 );
             }
 
         </script>
