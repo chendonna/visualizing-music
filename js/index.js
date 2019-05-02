@@ -1,8 +1,10 @@
-
+// import { analyze } from "./node_modules/web-audio-beat-detector/build/es5/bundle.js";
+// import { analyze } from 'https://dev.jspm.io/web-audio-beat-detector';
+// import { analyze } from 'https://dev.jspm.io/web-audio-beat-detector';
 
 const AUDIO_WIDTH = 200;
 const AUDIO_HEIGHT = 100;
-
+const api_key = "6f444187-f008-4d1f-901a-89dfce20f317";
 
 // SETTING CONSTANTS
 
@@ -91,7 +93,27 @@ function createParticleSystem() {
 
 function animate() {
 	requestAnimationFrame( animate );
-    //analyser.getByteTimeDomainData(dataArray);
+    if(dataArray != undefined){
+        analyser.getByteTimeDomainData(dataArray);
+        var amplitude;
+        var currentTime = audioElement.currentTime;
+        //amplitude = dataArray[100] / 128.0;
+        amplitude = Math.max.apply(null, dataArray) / 128.0;
+        shaderUniforms.amplitude.value = amplitude;
+        //console.log(amplitude);
+        if(currentTime <= 2){
+            tempData = dataArray.slice();
+        }
+
+        if(dataArray[256] > 180){// above threshold, looking only at 256
+            var numPeaks = peakTimes.length;
+            if(currentTime - peakTimes[numPeaks - 1] > 0.25){
+                peakTimes.push(currentTime);
+            }
+        }
+    }
+
+
     //shaderUniforms.amplitude.value = Math.sin(animationTime);
 
     animationTime += animationDelta;
@@ -104,6 +126,7 @@ function animate() {
 }
 animate();
 
+
 // Function to identify peaks
 
 function getPeaksAtThreshold(data, threshold) {
@@ -113,20 +136,90 @@ function getPeaksAtThreshold(data, threshold) {
     if (data[i] > threshold) {
       peaksArray.push(i);
       // Skip forward ~ 1/4s to get past this peak.
-      i += 10000;
+      i += 20;
     }
     i++;
   }
   return peaksArray;
 }
 
+// Function used to return a histogram of peak peakTimes
+
+function countIntervalsBetweenNearbyPeaks(peaks) {
+  var intervalCounts = [];
+  peaks.forEach(function(peak, index) {
+    for(var i = 0; i < 10; i++) {
+      var interval = peaks[index + i] - peak;
+      var foundInterval = intervalCounts.some(function(intervalCount) {
+        if (intervalCount.interval === interval)
+          return intervalCount.count++;
+      });
+      if (!foundInterval) {
+        intervalCounts.push({
+          interval: interval,
+          count: 1
+        });
+      }
+    }
+  });
+  return intervalCounts;
+}
+
+// Function used to return a histogram of tempo candidates.
+
+function groupNeighborsByTempo(intervalCounts) {
+  var tempoCounts = []
+  intervalCounts.forEach(function(intervalCount, i) {
+    // Convert an interval to tempo
+    if(intervalCount.interval == 0)
+        continue;
+    var theoreticalTempo = 60 / (intervalCount.interval / 44100 );
+
+    // Adjust the tempo to fit within the 90-180 BPM range
+    while (theoreticalTempo < 90) theoreticalTempo *= 2;
+    while (theoreticalTempo > 180) theoreticalTempo /= 2;
+
+    var foundTempo = tempoCounts.some(function(tempoCount) {
+      if (tempoCount.tempo === theoreticalTempo)
+        return tempoCount.count += intervalCount.count;
+    });
+    if (!foundTempo) {
+      tempoCounts.push({
+        tempo: theoreticalTempo,
+        count: intervalCount.count
+      });
+    }
+  });
+}
+
 
 function initAudio(){
     audioCtx = new AudioContext();
     source = audioCtx.createMediaElementSource(audioElement);
+    sourcePlay = audioCtx.createMediaElementSource(audioPlay);
+    biquadFilter = audioCtx.createBiquadFilter();
+
+    biquadFilter.type = "lowpass";
+    biquadFilter.frequency.value = 60;
+
     button.removeEventListener("click", initAudio, false);
     button.addEventListener("click", playAudio, false);
     button.innerText = "Play";
+
+    var myArrayBuffer = audioCtx.createBuffer(2, audioCtx.sampleRate * 3, audioCtx.sampleRate);
+
+    // Fill the buffer with white noise;
+    //just random values between -1.0 and 1.0
+    for (var channel = 0; channel < myArrayBuffer.numberOfChannels; channel++) {
+      // This gives us the actual ArrayBuffer that contains the data
+      var nowBuffering = myArrayBuffer.getChannelData(channel);
+      for (var i = 0; i < myArrayBuffer.length; i++) {
+        // Math.random() is in [0; 1.0]
+        // audio needs to be in [-1.0; 1.0]
+        nowBuffering[i] = Math.random() * 2 - 1;
+      }
+    }
+    source.buffer = myArrayBuffer;
 }
 
 function loopAudio(analyser, dataArray){
@@ -156,6 +249,7 @@ function draw(){
 
         var v = dataArray[i] / 128.0;
         var y = v * AUDIO_HEIGHT/2;
+        //console.log(`y is ${y}`);
 
         if(i === 0) {
           canvasCtx.moveTo(x, y);
@@ -172,12 +266,19 @@ function draw(){
 
 function playAudio(){
     analyser = audioCtx.createAnalyser();
-    source.connect(analyser);
-    analyser.connect(audioCtx.destination);
+    source.connect(biquadFilter);
+    
+    biquadFilter.connect(analyser);
+
+    //analyser.connect(audioCtx.destination);
+    //source.connect(audioCtx.destination);
+
+    sourcePlay.connect(audioCtx.destination);
 
     audioElement.play();
+    audioPlay.play();
 
-    analyser.fftSize = 2048;
+    analyser.fftSize = 1024;
     bufferLength = analyser.frequencyBinCount;
     dataArray = new Uint8Array(bufferLength);
     //analyser.getFloatFrequencyData(dataArray);
@@ -191,9 +292,29 @@ function playAudio(){
 
 
 }
-var audioCtx, source, analyser, dataArray, canvasCtx;
+
+function setListeners(){
+    loadListener = button.addEventListener("click", initAudio, false);
+    audioPlay.addEventListener("pause", function(){
+        audioElement.pause();
+    }, false);
+
+    audioPlay.addEventListener("play", function(){
+        audioElement.play();
+    }, false);
+    audioPlay.addEventListener("timeupdate", function(){
+        audioElement.currentTime = audioPlay.currentTime;
+    }, false);
+}
+
+var audioCtx, source, sourcePlay, biquadFilter, analyser, dataArray, canvasCtx, tempData;
+var peakTimes = [0];
 audioElement = document.getElementById('audioInput');
+audioPlay = document.getElementById('audioPlay');
 button = document.getElementById('loadButton');
 canvas = document.getElementById('myCanvas');
 canvasCtx = canvas.getContext("2d");
-loadListener = button.addEventListener("click", initAudio, false);
+setListeners();
+
+
+
