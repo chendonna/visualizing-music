@@ -93,24 +93,46 @@ function createParticleSystem() {
 
 function animate() {
 	requestAnimationFrame( animate );
-    if(dataArray != undefined){
-        analyser.getByteTimeDomainData(dataArray);
-        var amplitude;
-        var currentTime = audioElement.currentTime;
-        //amplitude = dataArray[100] / 128.0;
-        amplitude = Math.max.apply(null, dataArray) / 128.0;
-        shaderUniforms.amplitude.value = amplitude;
-        //console.log(amplitude);
+  // var dataArray = dataArrayTreble;
+  // var analyser = analyserTreble;
+  // var audio = audioTreble;
+    if(dataArrayTreble != undefined && dataArrayBass != undefined){
+        analyserBass.getByteTimeDomainData(dataArrayBass);
+        analyserTreble.getByteTimeDomainData(dataArrayTreble);
+        var amplitudeBass, amplitudeTreble;
+        var currentTime = audioPlay.currentTime;
+        amplitudeBass = Math.max.apply(null, dataArrayBass) / 128.0;
+        amplitudeTreble = Math.max.apply(null, dataArrayTreble) / 128.0;
+        shaderUniforms.amplitude.value = amplitudeTreble;
         if(currentTime <= 2){
-            tempData = dataArray.slice();
+            tempData = dataArrayBass.slice();
         }
 
-        if(dataArray[256] > 180){// above threshold, looking only at 256
+        if(dataArrayBass[256] > 120){// above threshold, looking only at 256
             var numPeaks = peakTimes.length;
             if(currentTime - peakTimes[numPeaks - 1] > 0.25){
                 peakTimes.push(currentTime);
             }
         }
+
+        // tempo calculation
+        var tempo = 0;
+        if(peakTimes.length > 10){ // get some initial data
+            var intervalCounts = countIntervalsBetweenNearbyPeaks(peakTimes);
+            var tempos = groupNeighborsByTempo(intervalCounts);
+            var total = 0;
+            var count = 0;
+            tempos.forEach(function(tempo){
+                //console.log(`tempo is ${tempo.tempo}`);
+                if(isNaN(tempo.tempo))
+                    return;
+                total += tempo.tempo;
+                count += tempo.count;
+            });
+            //console.log(`average predicted tempo is ${total / count}`);
+            tempo = total / count;
+        }
+        
     }
 
 
@@ -172,14 +194,14 @@ function groupNeighborsByTempo(intervalCounts) {
   intervalCounts.forEach(function(intervalCount, i) {
     // Convert an interval to tempo
     if(intervalCount.interval == 0)
-        continue;
+        return;
     var theoreticalTempo = 60 / (intervalCount.interval / 44100 );
 
     // Adjust the tempo to fit within the 90-180 BPM range
     while (theoreticalTempo < 90) theoreticalTempo *= 2;
     while (theoreticalTempo > 180) theoreticalTempo /= 2;
 
-    var foundTempo = tempoCounts.some(function(tempoCount) {
+    foundTempo = tempoCounts.some(function(tempoCount) {
       if (tempoCount.tempo === theoreticalTempo)
         return tempoCount.count += intervalCount.count;
     });
@@ -190,17 +212,24 @@ function groupNeighborsByTempo(intervalCounts) {
       });
     }
   });
+  return tempoCounts;
 }
 
 
 function initAudio(){
     audioCtx = new AudioContext();
-    source = audioCtx.createMediaElementSource(audioElement);
+    sourceTreble = audioCtx.createMediaElementSource(audioTreble);
+    sourceBass = audioCtx.createMediaElementSource(audioBass);
     sourcePlay = audioCtx.createMediaElementSource(audioPlay);
-    biquadFilter = audioCtx.createBiquadFilter();
 
-    biquadFilter.type = "lowpass";
-    biquadFilter.frequency.value = 60;
+    biquadFilterBass = audioCtx.createBiquadFilter();
+    biquadFilterTreble = audioCtx.createBiquadFilter();
+
+    biquadFilterTreble.type = "highpass";
+    biquadFilterTreble.frequency.value = 10000;
+
+    biquadFilterBass.type = "lowpass";
+    biquadFilterBass.frequency.value = 100;
 
     button.removeEventListener("click", initAudio, false);
     button.addEventListener("click", playAudio, false);
@@ -219,21 +248,16 @@ function initAudio(){
         nowBuffering[i] = Math.random() * 2 - 1;
       }
     }
-    source.buffer = myArrayBuffer;
+    sourceBass.buffer = myArrayBuffer;
 }
 
-function loopAudio(analyser, dataArray){
-    requestAnimationFrame(loopAudio);
-    analyser.getByteTimeDomainData(dataArray);
-    //console.log(dataArray);
-    loopAudio(analyser, dataArray);
-}
 
 
 
 function draw(){
     var drawVisual = requestAnimationFrame(draw);
-    analyser.getByteTimeDomainData(dataArray);
+    analyserBass.getByteTimeDomainData(dataArrayBass);
+    analyserTreble.getByteTimeDomainData(dataArrayTreble);
 
     canvasCtx.fillStyle = 'rgb(200, 200, 200)';
     canvasCtx.fillRect(0, 0, AUDIO_WIDTH, AUDIO_HEIGHT);
@@ -247,7 +271,7 @@ function draw(){
     canvasCtx.beginPath();
     for(var i = 0; i < bufferLength; i++) {
 
-        var v = dataArray[i] / 128.0;
+        var v = dataArrayBass[i] / 128.0;
         var y = v * AUDIO_HEIGHT/2;
         //console.log(`y is ${y}`);
 
@@ -261,34 +285,38 @@ function draw(){
     }
     canvasCtx.lineTo(canvas.width, canvas.height/2);
     canvasCtx.stroke();
-    //console.log(dataArray);
+    //console.log(dataArrayBass);
 }
 
 function playAudio(){
-    analyser = audioCtx.createAnalyser();
-    source.connect(biquadFilter);
-    
-    biquadFilter.connect(analyser);
+    analyserBass = audioCtx.createAnalyser();
+    analyserTreble = audioCtx.createAnalyser();
+    sourceBass.connect(biquadFilterBass);
+    sourceTreble.connect(biquadFilterTreble);
+    biquadFilterBass.connect(analyserBass);
+    biquadFilterTreble.connect(analyserTreble);
 
-    //analyser.connect(audioCtx.destination);
+    //analyserBass.connect(audioCtx.destination);
+    //analyserTreble.connect(audioCtx.destination);
     //source.connect(audioCtx.destination);
 
     sourcePlay.connect(audioCtx.destination);
 
-    audioElement.play();
+    audioBass.play();
     audioPlay.play();
 
-    analyser.fftSize = 1024;
-    bufferLength = analyser.frequencyBinCount;
-    dataArray = new Uint8Array(bufferLength);
-    //analyser.getFloatFrequencyData(dataArray);
-    //analyser.getByteFrequencyData(dataArray);
-    analyser.getByteTimeDomainData(dataArray);
-    //analyser.getFloatTimeDomainData(dataArray);
-    //loopAudio(analyser, dataArray);
+    analyserBass.fftSize = 1024;
+    bufferLength = analyserBass.frequencyBinCount;
+    dataArrayBass = new Uint8Array(bufferLength);
+    dataArrayTreble = new Uint8Array(bufferLength);
+    //analyserBass.getFloatFrequencyData(dataArrayBass);
+    //analyserBass.getByteFrequencyData(dataArrayBass);
+    analyserBass.getByteTimeDomainData(dataArrayBass);
+    analyserTreble.getByteTimeDomainData(dataArrayTreble);
+    //analyserBass.getFloatTimeDomainData(dataArrayBass);
     canvasCtx.clearRect(0, 0, AUDIO_WIDTH, AUDIO_HEIGHT);
     draw();
-    //console.log(dataArray);
+    //console.log(dataArrayBass);
 
 
 }
@@ -296,20 +324,25 @@ function playAudio(){
 function setListeners(){
     loadListener = button.addEventListener("click", initAudio, false);
     audioPlay.addEventListener("pause", function(){
-        audioElement.pause();
+        audioBass.pause();
+        audioTreble.pause();
     }, false);
 
     audioPlay.addEventListener("play", function(){
-        audioElement.play();
+        audioBass.play();
+        audioTreble.play();
     }, false);
     audioPlay.addEventListener("timeupdate", function(){
-        audioElement.currentTime = audioPlay.currentTime;
+        audioBass.currentTime = audioPlay.currentTime;
+        audioTreble.currentTime = audioPlay.currentTime;
     }, false);
 }
 
-var audioCtx, source, sourcePlay, biquadFilter, analyser, dataArray, canvasCtx, tempData;
+var audioCtx, sourceTreble, sourceBass, sourcePlay, biquadFilterTreble, biquadFilterBass;
+var analyserTreble, analyserBass, dataArrayTreble, dataArrayBass, canvasCtx, tempData;
 var peakTimes = [0];
-audioElement = document.getElementById('audioInput');
+audioTreble = document.getElementById('audioTreble');
+audioBass = document.getElementById('audioBass');
 audioPlay = document.getElementById('audioPlay');
 button = document.getElementById('loadButton');
 canvas = document.getElementById('myCanvas');
