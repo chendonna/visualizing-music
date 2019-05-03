@@ -14,9 +14,11 @@ const VIEW_ANGLE = 45;
 const ASPECT = WIDTH/HEIGHT;
 const NEAR = 0.1;
 const FAR = 10000;
+const CAMERA_Z = 700;
 
 var animationTime = 0;
-var animationDelta = 0.03;
+var animationDelta = 5.0;
+var loop = 0;
 
 var mousePos = {x: 0.5, y: 0.5};
 document.addEventListener('mousemove', function (event) {  mousePos = {x:event.clientX/WIDTH, y:event.clientY/HEIGHT};});
@@ -41,7 +43,7 @@ const scene = new THREE.Scene();
 
 scene.add(camera);
 
-camera.position.z = 50;
+camera.position.z = CAMERA_Z;
 
 renderer.setSize(WIDTH, HEIGHT);
 scene_dom.appendChild(renderer.domElement);
@@ -51,6 +53,7 @@ scene.add(parentContainer)
 
 var shaderUniforms, shaderAttributes;
 
+//createParticleSystem()
 var system = createParticleSystem();
 parentContainer.add(system)
 
@@ -62,30 +65,69 @@ function createParticleSystem() {
     //         value: []
     //     }
     // };
+
+    var loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('');
+    var texture = loader.load('../assets/galaxy.jpg');
+    // texture.wrapS = THREE.RepeatWrapping;
+    // texture.wrapT = THREE.RepeatWrapping;
+    // texture.repeat.set(1, 1);
+    var disk = loader.load('https://threejs.org/examples/textures/sprites/circle.png');
+
     shaderUniforms = {
         amplitude: {
             type: "f",
-            value: 0.5
-    }};
+            value: 1,
+        },
+        shape: {
+            value: disk
+        },
+        texture: {
+            value: texture
+        }
+    };
 
+    var material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
 
-    var sphere = new THREE.SphereBufferGeometry(10, 30, 30);
-    console.log(sphere);
-    sphere.verticesNeedUpdate = true;
-
+    //var groupSpheres = new THREE.Group;
     const shaderMaterial = new THREE.ShaderMaterial({
                                   //attributes: shaderAttributes,
                                   uniforms: shaderUniforms,
                                   vertexShader: document.getElementById("vertexShader").textContent,
                                   fragmentShader: document.getElementById("fragmentShader").textContent,
                                   transparent: true,
+                                  vertexColors: true,
+                                  blending: THREE.AdditiveBlending,
     });
 
-    var system = new THREE.Points(sphere, shaderMaterial);
-    console.log(system)
-    system.sortParticles = true;
+    var vertices = [];
+    var colors = [];
+    var centers = [];
 
-    particles = system.geometry.vertices;
+    // var sphere_origin = new THREE.SphereBufferGeometry(50, 35, 35);
+    // sphere_origin.translate(-25.0, -25.0, -25.0);
+    // console.log(sphere_origin.attributes.position.array)
+    // vertices = sphere_origin.attributes.position.array;
+    // colors = Array(5).fill(Math.random())
+    // centers = Array(5).fill(0)
+
+
+    for (var z = -300; z < 450; z+=5) {
+        var output = createCircle(35, 35, 50, z)
+        vertices = vertices.concat(output.vertices);
+        colors = colors.concat(output.colors)
+        centers = centers.concat(output.centers)
+    }
+    var geometry = new THREE.BufferGeometry();
+
+    geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+    geometry.addAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+    geometry.addAttribute( 'center', new THREE.Float32BufferAttribute( centers, 3 ) );
+
+    var system = new THREE.Points(geometry, shaderMaterial);
+
+    console.log("system ", system)
+    system.sortParticles = true;
 
     return system;
 
@@ -95,7 +137,6 @@ function animate() {
 	requestAnimationFrame( animate );
     if(dataArray != undefined){
         analyser.getByteTimeDomainData(dataArray);
-        var amplitude;
         var currentTime = audioElement.currentTime;
         //amplitude = dataArray[100] / 128.0;
         amplitude = Math.max.apply(null, dataArray) / 128.0;
@@ -114,21 +155,35 @@ function animate() {
     }
 
 
-    //shaderUniforms.amplitude.value = Math.sin(animationTime);
+    //shaderUniforms.offset_z.value = animationTime;
+    //animationTime += animationDelta;
 
-    animationTime += animationDelta;
+    //updateParticles();
+    system.geometry.attributes.position.needsUpdate = true;
 
-    parentContainer.rotation.y += 0.001;
-    parentContainer.rotation.x = (mousePos.y-0.5) * Math.PI;
-    parentContainer.rotation.z = (mousePos.x-0.5) * Math.PI;
+    //parentContainer.position.z += 0.1;
+    //console.log(parentContainer.position.z)
+
+    // parentContainer.rotation.y += 0.001;
+    // parentContainer.rotation.x = (mousePos.y-0.5) * Math.PI;
+    // parentContainer.rotation.z = (mousePos.x-0.5) * Math.PI;
+    //system.rotation.x = (mousePos.y-0.5) * Math.PI;
+    //system.rotation.z = (mousePos.x-0.5) * Math.PI;
 
 	renderer.render( scene, camera );
 }
 animate();
 
-
-// Function to identify peaks
-
+function updateParticles() {
+    var particles = system.geometry.attributes.position.array
+    var count = system.geometry.attributes.position.count * 3;
+    for (var i = 2; i<count; i +=3) {
+        particles[i] += 5.0;
+        if (particles[i] > CAMERA_Z) {
+            particles[i] = -CAMERA_Z;
+        }
+    }
+}
 function getPeaksAtThreshold(data, threshold) {
   var peaksArray = [];
   var length = data.length;
@@ -137,10 +192,44 @@ function getPeaksAtThreshold(data, threshold) {
       peaksArray.push(i);
       // Skip forward ~ 1/4s to get past this peak.
       i += 20;
-    }
-    i++;
   }
-  return peaksArray;
+    }
+}
+
+function createCircle(radius, segmentsX, segmentsY, offset_z) {
+    var vertices = []
+    var colors = []
+    var centers = []
+
+    var offset_x = Math.random() * 300-150;
+    var offset_y = Math.random() * 300 -150;
+
+    while ((offset_x > -25 && offset_x < 25) || (offset_y > -25 && offset_y < 25)) {
+        offset_x = Math.random() * 300-150;
+        offset_y = Math.random() * 300 -150;
+    }
+
+    var r = Math.random();
+    var g = Math.random();
+    var b = Math.random();
+
+    for (var row = 1; row < segmentsY; row++) {
+        for (var col = 0; col < segmentsX; col++) {
+            var phi = Math.PI / segmentsY*row; // latitude
+            var theta = 2*Math.PI / segmentsX*col; // longitude
+            var x = radius*Math.sin(phi)*Math.cos(theta) + offset_x;
+            var y = radius*Math.cos(phi) + offset_y;
+            var z = radius*Math.sin(phi)*Math.sin(theta) + offset_z;
+            vertices.push(x, y, z);
+            centers.push(offset_x, offset_y , offset_z);
+
+
+            //var color = new THREE.Color(Math.random(), Math.random(), Math.random())
+            colors.push(r, g, b)
+
+        }
+    }
+    return {vertices, colors, centers};
 }
 
 // Function used to return a histogram of peak peakTimes
@@ -172,7 +261,7 @@ function groupNeighborsByTempo(intervalCounts) {
   intervalCounts.forEach(function(intervalCount, i) {
     // Convert an interval to tempo
     if(intervalCount.interval == 0)
-        continue;
+        return;
     var theoreticalTempo = 60 / (intervalCount.interval / 44100 );
 
     // Adjust the tempo to fit within the 90-180 BPM range
@@ -225,11 +314,9 @@ function initAudio(){
 function loopAudio(analyser, dataArray){
     requestAnimationFrame(loopAudio);
     analyser.getByteTimeDomainData(dataArray);
-    //console.log(dataArray);
+    console.log(dataArray);
     loopAudio(analyser, dataArray);
 }
-
-
 
 function draw(){
     var drawVisual = requestAnimationFrame(draw);
@@ -267,7 +354,7 @@ function draw(){
 function playAudio(){
     analyser = audioCtx.createAnalyser();
     source.connect(biquadFilter);
-    
+
     biquadFilter.connect(analyser);
 
     //analyser.connect(audioCtx.destination);
@@ -315,6 +402,3 @@ button = document.getElementById('loadButton');
 canvas = document.getElementById('myCanvas');
 canvasCtx = canvas.getContext("2d");
 setListeners();
-
-
-

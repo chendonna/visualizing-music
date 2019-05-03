@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 
 <html lang="en" dir="ltr">
-    <audio id="audioInput" crossorigin="anonymous" src="bass.wav" type="audio/wav"></audio>
-    <audio controls id="audioPlay" crossorigin="anonymous" src="bass.wav" type="audio/wav"></audio>
+    <audio id="audioInput" crossorigin="anonymous" src="stray.wav" type="audio/wav"></audio>
+    <audio controls id="audioPlay" crossorigin="anonymous" src="stray.wav" type="audio/wav"></audio>
     <button id="loadButton" type="button">Load</button>
     <head>
         <meta charset="utf-8">
@@ -19,16 +19,28 @@
         <div id = "scene"> </div>
         <script type="x-shader/x-vertex" id="vertexShader">
             uniform float amplitude;
+            varying vec3 vColor;
+            varying vec2 vUv;
+            attribute vec3 center;
+
 
             void main() {
-                gl_PointSize = 2.0;
+                gl_PointSize = 1.0;
+                vColor = color;
+
 
                 vec4 new_pos = vec4(position, 1.0);
 
-                new_pos.z *= amplitude;
-                new_pos.x *= amplitude;
-                new_pos.y *= amplitude;
 
+                if (amplitude >= 0.0) {
+                    new_pos.z = new_pos.z * amplitude + center.z;
+                    new_pos.x = new_pos.x * amplitude + center.x;
+                    new_pos.y = new_pos.y * amplitude + center.y;
+                } else {
+                    new_pos.z = -(new_pos.z * amplitude - center.z);
+                    new_pos.x = -(new_pos.x * amplitude - center.x);
+                    new_pos.y = -(new_pos.y * amplitude - center.y);
+                }
 
 
                 gl_Position = projectionMatrix * modelViewMatrix * new_pos;
@@ -36,13 +48,26 @@
         </script>
 
         <script type="x-shader/x-fragment" id="fragmentShader">
+            varying vec3 vColor;
+            varying vec2 vUv;
+
+            uniform sampler2D shape;
+            uniform sampler2D texture;
+
+
             void main() {
-                gl_FragColor = vec4(0.35, 0.36, 0.37, 1.0);
+                vec2 uv = vUv;
+
+                vec4 v = texture2D(texture, uv);
+
+                vec4 shapeData = texture2D( shape, gl_PointCoord );
+                if (shapeData.a < 0.5) discard;
+                gl_FragColor = vec4( vColor, 1.0 ) * shapeData;
             }
 
         </script>
         <!-- <script type="module" src="./node_modules/web-audio-beat-detector/build/es5/bundle.js"></script> -->
-        <script type='module'> 
+        <script type='module'>
             import webAudioBeatDetector from 'https://dev.jspm.io/web-audio-beat-detector';
             window.analyze = webAudioBeatDetector.analyze;
         </script>
