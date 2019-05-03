@@ -145,7 +145,7 @@ function animate() {
         var currentTime = audioPlay.currentTime;
         amplitudeBass = Math.max.apply(null, dataArrayBass) / 128.0;
         amplitudeTreble = Math.max.apply(null, dataArrayTreble) / 128.0;
-        shaderUniforms.amplitude.value = amplitudeTreble;
+        shaderUniforms.amplitude.value = amplitudeBass * 2;
         if(currentTime <= 2){
             tempData = dataArrayBass.slice();
         }
@@ -181,17 +181,12 @@ function animate() {
     //shaderUniforms.offset_z.value = animationTime;
     //animationTime += animationDelta;
 
-    //updateParticles();
+    updateParticles();
     system.geometry.attributes.position.needsUpdate = true;
-
-    //parentContainer.position.z += 0.1;
-    //console.log(parentContainer.position.z)
-
-    // parentContainer.rotation.y += 0.001;
-    // parentContainer.rotation.x = (mousePos.y-0.5) * Math.PI;
-    // parentContainer.rotation.z = (mousePos.x-0.5) * Math.PI;
-    //system.rotation.x = (mousePos.y-0.5) * Math.PI;
-    //system.rotation.z = (mousePos.x-0.5) * Math.PI;
+    if(moveMouse){
+      system.rotation.x = (mousePos.y-0.5) * Math.PI;
+      system.rotation.z = (mousePos.x-0.5) * Math.PI;
+    }
 
 	renderer.render( scene, camera );
 }
@@ -402,8 +397,8 @@ function playAudio(){
     analyserBass.getByteTimeDomainData(dataArrayBass);
     analyserTreble.getByteTimeDomainData(dataArrayTreble);
     //analyserBass.getFloatTimeDomainData(dataArrayBass);
-    canvasCtx.clearRect(0, 0, AUDIO_WIDTH, AUDIO_HEIGHT);
-    draw();
+    //canvasCtx.clearRect(0, 0, AUDIO_WIDTH, AUDIO_HEIGHT);
+    //draw();
     //console.log(dataArrayBass);
 
 
@@ -424,15 +419,26 @@ function setListeners(){
         audioBass.currentTime = audioPlay.currentTime;
         audioTreble.currentTime = audioPlay.currentTime;
     }, false);
+
+  $(document).keydown(function(event){
+    if(event.which == 66) // b
+      moveMouse = true;
+    //console.log(moveMouse); 
+  });
+  $(document).keyup(function(event){
+      moveMouse = false;
+    //console.log(moveMouse); 
+  });
 }
 
 var audioCtx, sourceTreble, sourceBass, sourcePlay, biquadFilterTreble, biquadFilterBass;
 var analyserTreble, analyserBass, dataArrayTreble, dataArrayBass, canvasCtx, tempData;
 var peakTimes = [0];
+var moveMouse = false;
 audioTreble = document.getElementById('audioTreble');
 audioBass = document.getElementById('audioBass');
 audioPlay = document.getElementById('audioPlay');
 button = document.getElementById('loadButton');
 canvas = document.getElementById('myCanvas');
-canvasCtx = canvas.getContext("2d");
+//canvasCtx = canvas.getContext("2d");
 setListeners();
