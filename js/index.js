@@ -75,7 +75,11 @@ function createParticleSystem() {
     var disk = loader.load('https://threejs.org/examples/textures/sprites/circle.png');
 
     shaderUniforms = {
-        amplitude: {
+        amp_b: {
+            type: "f",
+            value: 1,
+        },
+        amp_t: {
             type: "f",
             value: 1,
         },
@@ -103,6 +107,8 @@ function createParticleSystem() {
     var vertices = [];
     var colors = [];
     var centers = [];
+    var types = [];
+    var amps = [];
 
     // var sphere_origin = new THREE.SphereBufferGeometry(50, 35, 35);
     // sphere_origin.translate(-25.0, -25.0, -25.0);
@@ -111,18 +117,37 @@ function createParticleSystem() {
     // colors = Array(5).fill(Math.random())
     // centers = Array(5).fill(0)
 
+    // 1 is base; 0 is treble
+    var type = 0.0
 
+    var c1 = new THREE.Color(0x6dc43e) // base
+    var c2 = new THREE.Color(0x4286f4) // trebel
     for (var z = -300; z < 450; z+=5) {
-        var output = createCircle(35, 35, 50, z)
+        var output;
+        if (type == 1.0 ) {
+            type = 0.0;
+            //output = createCircle(35, 35, 50, z, c1);
+        } else if (type == 0.0) {
+            type = 1.0
+            //output = createCircle(35, 35, 50, z, c2);
+        }
+        var output = createCircle(35, 35, 50, z);
+        types = types.concat(Array(output.vertices.length/3).fill(type))
         vertices = vertices.concat(output.vertices);
         colors = colors.concat(output.colors)
         centers = centers.concat(output.centers)
+        amps = amps.concat(Array(output.vertices.length/3).fill(1.0))
     }
+    console.log(vertices)
+    console.log(types)
     var geometry = new THREE.BufferGeometry();
 
     geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
     geometry.addAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
     geometry.addAttribute( 'center', new THREE.Float32BufferAttribute( centers, 3 ) );
+    geometry.addAttribute( 'type', new THREE.Float32BufferAttribute( types, 1 ) );
+    geometry.addAttribute( 'amp', new THREE.Float32BufferAttribute( amps, 1 ) );
+    //for (var i = 0; i < )
 
     var system = new THREE.Points(geometry, shaderMaterial);
 
@@ -145,7 +170,13 @@ function animate() {
         var currentTime = audioPlay.currentTime;
         amplitudeBass = Math.max.apply(null, dataArrayBass) / 128.0;
         amplitudeTreble = Math.max.apply(null, dataArrayTreble) / 128.0;
-        shaderUniforms.amplitude.value = amplitudeTreble;
+
+        //updateAmplitude(amplitudeBass, amplitudeTreble);
+        //system.geometry.attributes.amp.needsUpdate = true;
+
+        shaderUniforms.amp_b.value = amplitudeBass;
+        shaderUniforms.amp_t.value = amplitudeTreble;
+
         if(currentTime <= 2){
             tempData = dataArrayBass.slice();
         }
@@ -174,7 +205,7 @@ function animate() {
             //console.log(`average predicted tempo is ${total / count}`);
             tempo = total / count;
         }
-        
+
     }
 
 
@@ -184,12 +215,6 @@ function animate() {
     //updateParticles();
     system.geometry.attributes.position.needsUpdate = true;
 
-    //parentContainer.position.z += 0.1;
-    //console.log(parentContainer.position.z)
-
-    // parentContainer.rotation.y += 0.001;
-    // parentContainer.rotation.x = (mousePos.y-0.5) * Math.PI;
-    // parentContainer.rotation.z = (mousePos.x-0.5) * Math.PI;
     //system.rotation.x = (mousePos.y-0.5) * Math.PI;
     //system.rotation.z = (mousePos.x-0.5) * Math.PI;
 
@@ -207,6 +232,7 @@ function updateParticles() {
         }
     }
 }
+
 function getPeaksAtThreshold(data, threshold) {
   var peaksArray = [];
   var length = data.length;

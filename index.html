@@ -19,30 +19,32 @@
         <canvas id="myCanvas" width="200" height="100"></canvas>
         <div id = "scene"> </div>
         <script type="x-shader/x-vertex" id="vertexShader">
-            uniform float amplitude;
+            uniform float amp_b;
+            uniform float amp_t;
+
             varying vec3 vColor;
             varying vec2 vUv;
             attribute vec3 center;
+            attribute float amp;
+            attribute float type;
 
 
             void main() {
                 gl_PointSize = 1.0;
                 vColor = color;
 
+                float amp;
+                if (type == 1.0) { //bass
+                    amp = amp_b;
+                } else {
+                    amp = amp_t;
+                }
 
                 vec4 new_pos = vec4(position, 1.0);
 
-
-                if (amplitude >= 0.0) {
-                    new_pos.z = new_pos.z * amplitude + center.z;
-                    new_pos.x = new_pos.x * amplitude + center.x;
-                    new_pos.y = new_pos.y * amplitude + center.y;
-                } else {
-                    new_pos.z = -(new_pos.z * amplitude - center.z);
-                    new_pos.x = -(new_pos.x * amplitude - center.x);
-                    new_pos.y = -(new_pos.y * amplitude - center.y);
-                }
-
+                new_pos.z = new_pos.z * amp + center.z;
+                new_pos.x = new_pos.x * amp + center.x;
+                new_pos.y = new_pos.y * amp + center.y;
 
                 gl_Position = projectionMatrix * modelViewMatrix * new_pos;
             }
