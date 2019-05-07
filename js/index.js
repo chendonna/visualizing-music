@@ -62,7 +62,7 @@ function createParticleSystem() {
 
     var loader = new THREE.TextureLoader();
     loader.setCrossOrigin('');
-    var texture = loader.load('../assets/galaxy.jpg');
+    var texture = loader.load('./assets/galaxy.jpg');
     // texture.wrapS = THREE.RepeatWrapping;
     // texture.wrapT = THREE.RepeatWrapping;
     // texture.repeat.set(1, 1);
