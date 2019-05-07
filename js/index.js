@@ -53,18 +53,12 @@ scene.add(parentContainer)
 
 var shaderUniforms, shaderAttributes;
 
-//createParticleSystem()
+
 var system = createParticleSystem();
 parentContainer.add(system)
 
 //PARTICLE SYSTEM
 function createParticleSystem() {
-    // shaderAttributes = {
-    //     vertexColor: {
-    //         type: "c",
-    //         value: []
-    //     }
-    // };
 
     var loader = new THREE.TextureLoader();
     loader.setCrossOrigin('');
@@ -122,7 +116,7 @@ function createParticleSystem() {
 
     var c1 = new THREE.Color(0x6dc43e) // base
     var c2 = new THREE.Color(0x4286f4) // trebel
-    for (var z = -300; z < 450; z+=5) {
+    for (var z = -700; z < 450; z+=10) {
         var output;
         if (type == 1.0 ) {
             type = 0.0;
@@ -138,8 +132,8 @@ function createParticleSystem() {
         centers = centers.concat(output.centers)
         amps = amps.concat(Array(output.vertices.length/3).fill(1.0))
     }
-    console.log(vertices)
-    console.log(types)
+    // console.log(vertices)
+    // console.log(types)
     var geometry = new THREE.BufferGeometry();
 
     geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
@@ -151,7 +145,7 @@ function createParticleSystem() {
 
     var system = new THREE.Points(geometry, shaderMaterial);
 
-    console.log("system ", system)
+    // console.log("system ", system)
     system.sortParticles = true;
 
     return system;
@@ -189,22 +183,22 @@ function animate() {
         }
 
         // tempo calculation
-        var tempo = 0;
-        if(peakTimes.length > 10){ // get some initial data
-            var intervalCounts = countIntervalsBetweenNearbyPeaks(peakTimes);
-            var tempos = groupNeighborsByTempo(intervalCounts);
-            var total = 0;
-            var count = 0;
-            tempos.forEach(function(tempo){
-                //console.log(`tempo is ${tempo.tempo}`);
-                if(isNaN(tempo.tempo))
-                    return;
-                total += tempo.tempo;
-                count += tempo.count;
-            });
-            //console.log(`average predicted tempo is ${total / count}`);
-            tempo = total / count;
-        }
+        // var tempo = 0;
+        // if(peakTimes.length > 10){ // get some initial data
+        //     var intervalCounts = countIntervalsBetweenNearbyPeaks(peakTimes);
+        //     var tempos = groupNeighborsByTempo(intervalCounts);
+        //     var total = 0;
+        //     var count = 0;
+        //     tempos.forEach(function(tempo){
+        //         //console.log(`tempo is ${tempo.tempo}`);
+        //         if(isNaN(tempo.tempo))
+        //             return;
+        //         total += tempo.tempo;
+        //         count += tempo.count;
+        //     });
+        //     //console.log(`average predicted tempo is ${total / count}`);
+        //     tempo = total / count;
+        // }
 
     }
 
@@ -335,7 +329,11 @@ function groupNeighborsByTempo(intervalCounts) {
 }
 
 
-function initAudio(){
+function initAudio(audioFile, button){
+    audioTreble.src = audioFile;
+    audioBass.src = audioFile;
+    audioPlay.src = audioFile;
+
     audioCtx = new AudioContext();
     sourceTreble = audioCtx.createMediaElementSource(audioTreble);
     sourceBass = audioCtx.createMediaElementSource(audioBass);
@@ -350,9 +348,18 @@ function initAudio(){
     biquadFilterBass.type = "lowpass";
     biquadFilterBass.frequency.value = 100;
 
-    button.removeEventListener("click", initAudio, false);
-    button.addEventListener("click", playAudio, false);
-    button.innerText = "Play";
+    btsButton.removeEventListener("click", btsCallBack, false);
+    strayButton.removeEventListener("click", strayCallBack, false);
+    bassButton.removeEventListener("click", bassCallBack, false);
+    jazzButton.removeEventListener("click", jazzCallBack, false);
+    blackPinkButton.removeEventListener("click", blackPinkCallBack, false);
+
+    strayButton.style.display = "none";
+    jazzButton.style.display = "none";
+    bassButton.style.display = "none";
+    blackPinkButton.style.display = "none";
+    btsButton.addEventListener("click", playAudio, false);
+    btsButton.innerText = "Play";
 
     var myArrayBuffer = audioCtx.createBuffer(2, audioCtx.sampleRate * 3, audioCtx.sampleRate);
 
@@ -438,8 +445,20 @@ function playAudio(){
 
 }
 
+
 function setListeners(){
-    loadListener = button.addEventListener("click", initAudio, false);
+    btsCallBack = function(){initAudio("bts.wav", btsButton)};
+    strayCallBack = function(){initAudio("stray.wav", strayButton)};
+    jazzCallBack = function(){initAudio("jazz.wav", jazzButton)};
+    bassCallBack = function(){initAudio("bass.wav", bassButton)};
+    blackPinkCallBack = function(){initAudio("blackpink.wav", blackPinkButton)};
+
+    btsButton.addEventListener("click", btsCallBack, false);
+    strayButton.addEventListener("click", strayCallBack, false);
+    jazzButton.addEventListener("click", jazzCallBack, false);
+    bassButton.addEventListener("click", bassCallBack, false);
+    blackPinkButton.addEventListener("click", blackPinkCallBack, false);
+
     audioPlay.addEventListener("pause", function(){
         audioBass.pause();
         audioTreble.pause();
@@ -472,7 +491,9 @@ var moveMouse = false;
 audioTreble = document.getElementById('audioTreble');
 audioBass = document.getElementById('audioBass');
 audioPlay = document.getElementById('audioPlay');
-button = document.getElementById('loadButton');
-canvas = document.getElementById('myCanvas');
-//canvasCtx = canvas.getContext("2d");
+btsButton = document.getElementById('btsButton');
+strayButton = document.getElementById('strayButton');
+blackPinkButton = document.getElementById('blackPinkButton');
+jazzButton = document.getElementById('jazzButton');
+bassButton = document.getElementById('bassButton');
 setListeners();
